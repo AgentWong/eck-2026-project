@@ -39,8 +39,9 @@ Read `docs/teardown-and-rebuild.md` section "AWS Stack: Rebuild" for exact comma
    ```
 9. Get allowed CIDR: `ALLOWED_CIDR=$(cd terraform/environments/dev/security-context && terragrunt output -raw allowed_cidr)`
 10. Get NAT gateway IP: `NAT_GW_IP=$(cd terraform/environments/dev/vpc && terragrunt output -raw nat_gateway_public_ip)`
-11. Get GitHub token (try `gh auth token` first; if `gh` is not installed, use `git credential fill` to retrieve the stored token)
-12. Deploy bootstrap chart: `helm install eck-bootstrap gitops/bootstrap/ -n argocd -f gitops/bootstrap/values-aws.yaml --set repo.password="$(gh auth token 2>/dev/null || git credential fill <<< $'protocol=https\nhost=github.com' | grep ^password | cut -d= -f2)" --set awsIngress.allowedCidr="${ALLOWED_CIDR}" --set awsIngress.natGatewayIp="${NAT_GW_IP}"`
+11. Get ACM certificate ARN: `ACM_CERT_ARN=$(cd terraform/environments/dev/acm && terragrunt output -raw certificate_arn)`
+12. Get GitHub token (try `gh auth token` first; if `gh` is not installed, use `git credential fill` to retrieve the stored token)
+13. Deploy bootstrap chart: `helm install eck-bootstrap gitops/bootstrap/ -n argocd -f gitops/bootstrap/values-aws.yaml --set repo.password="$(gh auth token 2>/dev/null || git credential fill <<< $'protocol=https\nhost=github.com' | grep ^password | cut -d= -f2)" --set awsIngress.allowedCidr="${ALLOWED_CIDR}" --set awsIngress.natGatewayIp="${NAT_GW_IP}" --set awsIngress.acmCertificateArn="${ACM_CERT_ARN}"`
 13. Wait for all ArgoCD applications to sync and report status
 
 ## Rules

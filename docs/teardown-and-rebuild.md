@@ -437,15 +437,17 @@ kubectl create namespace keycloak
 kubectl -n keycloak apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.5.3/kubernetes/kubernetes.yml
 kubectl wait --for=condition=Ready pods --all -n keycloak --timeout=90s
 
-# 8. Deploy App of Apps bootstrap chart (allowedCidr + natGatewayIp set dynamically from Terraform outputs)
+# 8. Deploy App of Apps bootstrap chart (allowedCidr + natGatewayIp + acmCertificateArn set dynamically from Terraform outputs)
 ALLOWED_CIDR=$(cd terraform/environments/dev/security-context && terragrunt output -raw allowed_cidr)
 NAT_GW_IP=$(cd terraform/environments/dev/vpc && terragrunt output -raw nat_gateway_public_ip)
+ACM_CERT_ARN=$(cd terraform/environments/dev/acm && terragrunt output -raw certificate_arn)
 helm install eck-bootstrap gitops/bootstrap/ \
   -n argocd \
   -f gitops/bootstrap/values-aws.yaml \
   --set repo.password="${GITHUB_PAT}" \
   --set awsIngress.allowedCidr="${ALLOWED_CIDR}" \
-  --set awsIngress.natGatewayIp="${NAT_GW_IP}"
+  --set awsIngress.natGatewayIp="${NAT_GW_IP}" \
+  --set awsIngress.acmCertificateArn="${ACM_CERT_ARN}"
 
 # 9. Verify all apps sync (aws-ingress app creates ALBs + Route53 records via External DNS)
 kubectl get applications -n argocd

@@ -3,7 +3,7 @@ include "root" {
 }
 
 locals {
-  secrets = read_terragrunt_config("${get_parent_terragrunt_dir("root")}/environments/dev/secrets.hcl")
+  secrets = read_terragrunt_config(find_in_parent_folders("secrets.hcl"))
 }
 
 terraform {
