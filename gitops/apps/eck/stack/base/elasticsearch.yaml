@@ -1,0 +1,94 @@
+# 3-node Elasticsearch cluster for local development
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: elastic
+spec:
+  version: 8.17.4
+  secureSettings:
+    - secretName: kibana-oidc-client-secret
+  nodeSets:
+    - name: default
+      count: 3
+      config:
+        node.store.allow_mmap: false  # Required for K3s (vm.max_map_count not set)
+        # !! DO NOT ADD xpack.license.self_generated.type: trial HERE !!
+        # It seems like a good idea but it permanently breaks licensing:
+        # 1. Elasticsearch activates the trial on boot using the cluster UUID.
+        # 2. ECK's license reconciler then resets it back to 'basic' (because
+        #    it reads the license from the ECK operator, not from this config).
+        # 3. The cluster UUID is now permanently marked as "trial used" —
+        #    start_trial via the API returns "Trial was already activated" on
+        #    every subsequent reconcile, including after teardown/rebuild if the
+        #    same AWS account is reused.
+        #
+        # THE CORRECT APPROACH (already implemented):
+        # - gitops/bootstrap/templates/eck-operator.yaml deploys an
+        #   eck-trial-license Secret in elastic-system via Helm extraObjects.
+        # - This tells the ECK operator itself to run in enterprise trial mode.
+        # - ECK then calls start_trial on the ES cluster once at first sync.
+        # - If start_trial fails (already called), ECK logs a warning but the
+        #   trial stays active from the prior call.
+        # - The role-mappings-job.yaml PostSync hook also calls start_trial as
+        #   a belt-and-suspenders guard on fresh cluster bootstraps.
+        # OIDC realm for Keycloak SSO
+        xpack.security.authc.realms.oidc.keycloak:
+          order: 2
+          rp.client_id: "kibana"
+          rp.response_type: "code"
+          rp.redirect_uri: "https://localhost:5601/api/security/oidc/callback"
+          op.issuer: "https://localhost:8443/realms/eck-2026"
+          op.authorization_endpoint: "https://localhost:8443/realms/eck-2026/protocol/openid-connect/auth"
+          op.token_endpoint: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/token"
+          op.userinfo_endpoint: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/userinfo"
+          op.jwkset_path: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/certs"
+          op.endsession_endpoint: "https://localhost:8443/realms/eck-2026/protocol/openid-connect/logout"
+          claims.principal: "preferred_username"
+          claims.groups: "roles"
+          rp.post_logout_redirect_uri: "https://localhost:5601/security/logged_out"
+          ssl.certificate_authorities:
+            - /usr/share/elasticsearch/config/oidc-ca/ca.crt
+      podTemplate:
+        metadata:
+          labels:
+            app: elasticsearch
+            version: "8.17.4"
+        spec:
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: 1536Mi
+                  cpu: 250m
+                limits:
+                  memory: 1536Mi
+              volumeMounts:
+                - name: oidc-ca
+                  mountPath: /usr/share/elasticsearch/config/oidc-ca
+                  readOnly: true
+          volumes:
+            - name: oidc-ca
+              secret:
+                secretName: elastic-ca-bundle
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+                    topologyKey: kubernetes.io/hostname
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi

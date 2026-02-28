@@ -1,0 +1,34 @@
+# Common values for the App of Apps bootstrap chart
+# Environment-specific overrides in values-local.yaml / values-aws.yaml
+
+repoURL: https://github.com/AgentWong/eck-2026-project
+targetRevision: main
+
+# GitHub repo credentials (private repo — set password at install time)
+# Usage: --set repo.password=$(gh auth token)
+repo:
+  username: git
+  password: ""
+
+# Component toggles (all enabled by default)
+certManager:
+  enabled: true
+istio:
+  enabled: true
+eck:
+  enabled: true
+  stackPath: gitops/apps/eck/stack/overlays/local
+keycloak:
+  enabled: true
+  path: gitops/apps/keycloak/overlays/local
+kiali:
+  auth:
+    strategy: anonymous
+monitoring:
+  enabled: true
+networkPolicies:
+  enabled: true
+tls:
+  enabled: true
+awsIngress:
+  enabled: false

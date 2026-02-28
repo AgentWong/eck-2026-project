@@ -1,0 +1,58 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  # --- Elasticsearch: OIDC realm --- replace all localhost/internal endpoints
+  # with the public domain so every OIDC exchange goes through the ALB and
+  # Keycloak always stamps the same issuer (https://keycloak.hermanwong.io/...).
+  - target:
+      group: elasticsearch.k8s.elastic.co
+      version: v1
+      kind: Elasticsearch
+      name: elasticsearch
+    patch: |-
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/rp.redirect_uri
+        value: "https://kibana.hermanwong.io/api/security/oidc/callback"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.issuer
+        value: "https://keycloak.hermanwong.io/realms/eck-2026"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.authorization_endpoint
+        value: "https://keycloak.hermanwong.io/realms/eck-2026/protocol/openid-connect/auth"
+      # Back-channel calls (token exchange, userinfo, JWK fetch) use the internal
+      # Kubernetes service URL so ES pods don't need to hairpin through the ALB
+      # (EKS does not support hairpin NAT — external ALB URLs are unreachable from
+      # inside the cluster). Keycloak stamps the correct issuer
+      # (https://keycloak.hermanwong.io) regardless because KC_HOSTNAME /
+      # spec.hostname is set on the Keycloak CR. The internal cert is signed by
+      # eck-2026-ca which is already trusted via ssl.certificate_authorities.
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.token_endpoint
+        value: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/token"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.userinfo_endpoint
+        value: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/userinfo"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.jwkset_path
+        value: "https://keycloak-service.keycloak.svc:8443/realms/eck-2026/protocol/openid-connect/certs"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/op.endsession_endpoint
+        value: "https://keycloak.hermanwong.io/realms/eck-2026/protocol/openid-connect/logout"
+      - op: replace
+        path: /spec/nodeSets/0/config/xpack.security.authc.realms.oidc.keycloak/rp.post_logout_redirect_uri
+        value: "https://kibana.hermanwong.io/security/logged_out"
+      # ssl.certificate_authorities is kept (not removed) — needed to trust the
+      # internal keycloak-service.keycloak.svc cert signed by eck-2026-ca.
+  # --- Kibana: public base URL --- suppress the prod-config warning and ensure
+  # OIDC redirect_uri resolution uses the correct public hostname.
+  - target:
+      group: kibana.k8s.elastic.co
+      version: v1
+      kind: Kibana
+      name: kibana
+    patch: |-
+      - op: add
+        path: /spec/config/server.publicBaseUrl
+        value: "https://kibana.hermanwong.io"

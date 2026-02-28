@@ -1,0 +1,19 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  hostname:
+    # Must be a full URL (with scheme) — not just a bare hostname.
+    # When set to a bare hostname, Keycloak resolves the scheme and port from each
+    # incoming request. Back-channel calls arriving at :8443 compute the issuer as
+    # https://keycloak.hermanwong.io:8443/realms/... which does not match the :443
+    # issuer stamped in tokens → "Token verification failed" at the userinfo endpoint.
+    # Full URL locks the issuer to https://keycloak.hermanwong.io regardless of port.
+    hostname: https://keycloak.hermanwong.io
+    # backchannelDynamic: allow internal/back-channel requests to resolve the base
+    # URL dynamically from the request. Requires hostname to be a full URL (above).
+    # Enables ES pods to call keycloak-service.keycloak.svc:8443 for token/userinfo
+    # while Keycloak still stamps the public https://keycloak.hermanwong.io issuer.
+    backchannelDynamic: true

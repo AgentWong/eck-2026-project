@@ -1,0 +1,30 @@
+# AWS ALB Ingress for Kibana — drives External DNS to create Route53 record
+# Only applied in the AWS environment (via aws-ingress ArgoCD Application in values-aws.yaml)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kibana
+  namespace: elastic
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ .Values.allowedCidr | quote }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.acmCertificateArn | quote }}
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+    alb.ingress.kubernetes.io/healthcheck-path: /api/status
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.kibanaFqdn }}
+spec:
+  ingressClassName: alb
+  rules:
+    - host: {{ .Values.kibanaFqdn }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kibana-kb-http
+                port:
+                  number: 5601

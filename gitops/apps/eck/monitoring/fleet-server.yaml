@@ -1,0 +1,35 @@
+# Fleet Server — centralized agent management
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: fleet-server
+  namespace: elastic
+spec:
+  version: 8.17.4
+  kibanaRef:
+    name: kibana
+  elasticsearchRefs:
+    - name: elasticsearch
+  mode: fleet
+  fleetServerEnabled: true
+  policyID: eck-fleet-server
+  deployment:
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          app: fleet-server
+          version: "8.17.4"
+      spec:
+        serviceAccountName: fleet-server
+        automountServiceAccountToken: true
+        securityContext:
+          runAsUser: 0
+        containers:
+          - name: agent
+            resources:
+              requests:
+                memory: 256Mi
+                cpu: 100m
+              limits:
+                memory: 512Mi

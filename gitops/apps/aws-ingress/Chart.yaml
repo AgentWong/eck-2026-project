@@ -1,0 +1,4 @@
+apiVersion: v2
+name: aws-ingress
+description: AWS ALB Ingress resources with IP restriction
+version: 0.1.0

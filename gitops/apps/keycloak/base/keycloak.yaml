@@ -1,0 +1,19 @@
+# Keycloak instance with embedded H2 database for local/dev use
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  instances: 1
+  startOptimized: false
+  db:
+    vendor: dev-file
+  http:
+    httpEnabled: false
+    tlsSecret: keycloak-tls-secret
+  hostname:
+    strict: false
+    hostname: localhost
+  proxy:
+    headers: xforwarded

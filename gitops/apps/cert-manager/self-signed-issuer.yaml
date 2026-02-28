@@ -1,0 +1,32 @@
+# Self-signed ClusterIssuer (used only to bootstrap the CA certificate)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# Self-signed CA certificate (all TLS certs are issued from this CA)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: eck-2026-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: eck-2026-ca
+  secretName: eck-2026-ca-secret
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  duration: 87600h   # 10 years
+  renewBefore: 8760h # 1 year
+---
+# CA ClusterIssuer that signs certificates using the CA above
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: eck-2026-ca-issuer
+spec:
+  ca:
+    secretName: eck-2026-ca-secret

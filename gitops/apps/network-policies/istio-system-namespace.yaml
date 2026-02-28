@@ -1,0 +1,70 @@
+# Network Policies for the istio-system namespace
+---
+# Default deny all ingress in the istio-system namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: istio-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow Istiod internal communication (xDS, webhooks, monitoring)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istiod-internal
+  namespace: istio-system
+spec:
+  podSelector:
+    matchLabels:
+      app: istiod
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 15010
+          protocol: TCP
+        - port: 15012
+          protocol: TCP
+        - port: 15014
+          protocol: TCP
+        - port: 15017
+          protocol: TCP
+---
+# Allow port-forward access to Kiali UI
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kiali-port-forward
+  namespace: istio-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kiali
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 20001
+          protocol: TCP
+---
+# Allow Kiali and port-forward access to Prometheus server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-ingress
+  namespace: istio-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 9090
+          protocol: TCP

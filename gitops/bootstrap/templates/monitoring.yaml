@@ -1,0 +1,26 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    path: gitops/apps/eck/monitoring
+    targetRevision: {{ .Values.targetRevision }}
+  destination:
+    server: {{ .Values.destination.server }}
+    namespace: {{ .Values.monitoring.namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

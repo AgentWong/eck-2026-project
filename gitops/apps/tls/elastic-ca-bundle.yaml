@@ -1,0 +1,16 @@
+# Certificate in the elastic namespace to make the CA cert available for
+# Elasticsearch to trust Keycloak's TLS cert during OIDC server-to-server calls
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: elastic-ca-bundle
+  namespace: elastic
+spec:
+  secretName: elastic-ca-bundle
+  issuerRef:
+    name: eck-2026-ca-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - elasticsearch-es-http.elastic.svc
+  duration: 8760h    # 1 year
+  renewBefore: 720h  # 30 days

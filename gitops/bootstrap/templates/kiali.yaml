@@ -1,0 +1,60 @@
+{{- if .Values.istio.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://kiali.org/helm-charts
+    chart: kiali-server
+    targetRevision: 2.7.0
+    helm:
+      valuesObject:
+        auth:
+          strategy: {{ .Values.kiali.auth.strategy | default "anonymous" }}
+          {{- if eq (.Values.kiali.auth.strategy | default "anonymous") "openid" }}
+          openid:
+            client_id: {{ .Values.kiali.auth.openid.client_id | quote }}
+            issuer_uri: {{ .Values.kiali.auth.openid.issuer_uri | quote }}
+            username_claim: preferred_username
+            scopes:
+              - openid
+              - email
+            disable_rbac: true
+          {{- end }}
+        identity:
+          cert_file: /kiali-tls/tls.crt
+          private_key_file: /kiali-tls/tls.key
+        server:
+          web_fqdn: {{ .Values.kiali.web_fqdn | default "" | quote }}
+          web_schema: https
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+        deployment:
+          custom_secrets:
+            - name: kiali-tls-secret
+              mount: /kiali-tls
+              optional: false
+        external_services:
+          istio:
+            root_namespace: istio-system
+          prometheus:
+            url: http://prometheus-server.istio-system.svc:80
+  destination:
+    server: {{ .Values.destination.server }}
+    namespace: {{ .Values.istio.namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+{{- end }}

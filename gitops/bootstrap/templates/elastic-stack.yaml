@@ -1,0 +1,26 @@
+{{- if .Values.eck.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elastic-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    path: {{ .Values.eck.stackPath }}
+    targetRevision: {{ .Values.targetRevision }}
+  destination:
+    server: {{ .Values.destination.server }}
+    namespace: {{ .Values.eck.stackNamespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

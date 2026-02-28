@@ -1,0 +1,18 @@
+# TLS certificate for ArgoCD server
+# The secret name "argocd-server-tls" is auto-detected by the argo-cd Helm chart
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-server-tls
+  namespace: argocd
+spec:
+  secretName: argocd-server-tls
+  issuerRef:
+    name: eck-2026-ca-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - argocd-server.argocd.svc
+    - argocd-server.argocd.svc.cluster.local
+    - localhost
+  duration: 8760h    # 1 year
+  renewBefore: 720h  # 30 days

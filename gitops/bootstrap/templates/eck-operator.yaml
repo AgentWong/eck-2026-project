@@ -1,0 +1,48 @@
+{{- if .Values.eck.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eck-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://helm.elastic.co
+    chart: eck-operator
+    targetRevision: 3.3.0
+    helm:
+      valuesObject:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        # ECK enterprise trial license — grants all managed ES clusters enterprise
+        # features (OIDC, etc.) without needing a paid license. ECK reads this
+        # Secret and manages ES cluster licenses directly. Without this, ECK resets
+        # every managed cluster to 'basic' on each reconcile cycle, which disables
+        # OIDC even after a successful start_trial API call.
+        # EULA: https://www.elastic.co/eula
+        extraObjects:
+          - apiVersion: v1
+            kind: Secret
+            metadata:
+              name: eck-trial-license
+              namespace: {{ .Values.eck.operatorNamespace }}
+              labels:
+                license.k8s.elastic.co/type: enterprise_trial
+              annotations:
+                elastic.co/eula: accepted
+  destination:
+    server: {{ .Values.destination.server }}
+    namespace: {{ .Values.eck.operatorNamespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

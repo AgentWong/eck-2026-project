@@ -1,0 +1,163 @@
+# Network Policies for the elastic namespace
+---
+# Default deny all ingress in the elastic namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: elastic
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow Kibana to reach Elasticsearch
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kibana-to-elasticsearch
+  namespace: elastic
+spec:
+  podSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              kibana.k8s.elastic.co/name: kibana
+      ports:
+        - port: 9200
+          protocol: TCP
+---
+# Allow ECK operator to manage Elasticsearch and Kibana
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-eck-operator
+  namespace: elastic
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: elastic-system
+      ports:
+        - port: 9200
+          protocol: TCP
+        - port: 5601
+          protocol: TCP
+---
+# Allow Elasticsearch node-to-node communication (transport)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-es-transport
+  namespace: elastic
+spec:
+  podSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+      ports:
+        - port: 9300
+          protocol: TCP
+---
+# Allow port-forward access to Kibana and ES from any source
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-port-forward
+  namespace: elastic
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 5601
+          protocol: TCP
+        - port: 9200
+          protocol: TCP
+        - port: 8220
+          protocol: TCP
+---
+# Allow Elastic Agent to connect to Fleet Server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agent-to-fleet-server
+  namespace: elastic
+spec:
+  podSelector:
+    matchLabels:
+      agent.k8s.elastic.co/name: fleet-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              agent.k8s.elastic.co/name: elastic-agent
+      ports:
+        - port: 8220
+          protocol: TCP
+---
+# Allow Prometheus to scrape Istio sidecar metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: elastic
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 15020
+          protocol: TCP
+        - port: 15090
+          protocol: TCP
+---
+# Allow Fleet Server and Elastic Agent to reach Elasticsearch
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agents-to-elasticsearch
+  namespace: elastic
+spec:
+  podSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: elasticsearch
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              agent.k8s.elastic.co/name: fleet-server
+        - podSelector:
+            matchLabels:
+              agent.k8s.elastic.co/name: elastic-agent
+      ports:
+        - port: 9200
+          protocol: TCP

@@ -1,0 +1,82 @@
+# Kibana for local development
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: elastic
+spec:
+  version: 8.17.4
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  config:
+    # OIDC authentication via Keycloak (with basic auth fallback)
+    xpack.security.authc.providers:
+      oidc.keycloak:
+        order: 0
+        realm: keycloak
+        description: "Log in with Keycloak"
+      basic.basic1:
+        order: 1
+        description: "Log in with username/password"
+    server.xsrf.allowlist:
+      - /api/security/oidc/callback
+    # Fleet Server connection settings
+    xpack.fleet.agents.elasticsearch.hosts:
+      - https://elasticsearch-es-http.elastic.svc:9200
+    xpack.fleet.agents.fleet_server.hosts:
+      - https://fleet-server-agent-http.elastic.svc:8220
+    # Pre-install integration packages
+    xpack.fleet.packages:
+      - name: system
+        version: latest
+      - name: elastic_agent
+        version: latest
+      - name: fleet_server
+        version: latest
+      - name: kubernetes
+        version: latest
+    # Pre-create agent policies
+    xpack.fleet.agentPolicies:
+      - name: Fleet Server on ECK policy
+        id: eck-fleet-server
+        namespace: default
+        is_managed: true
+        monitoring_enabled:
+          - logs
+          - metrics
+        unenroll_timeout: 900
+        package_policies:
+          - name: fleet_server-1
+            id: fleet_server-1
+            package:
+              name: fleet_server
+      - name: Elastic Agent on ECK policy
+        id: eck-agent
+        namespace: default
+        is_managed: true
+        monitoring_enabled:
+          - logs
+          - metrics
+        unenroll_timeout: 900
+        package_policies:
+          - name: system-1
+            package:
+              name: system
+          - name: kubernetes-1
+            package:
+              name: kubernetes
+  podTemplate:
+    metadata:
+      labels:
+        app: kibana
+        version: "8.17.4"
+    spec:
+      containers:
+        - name: kibana
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi

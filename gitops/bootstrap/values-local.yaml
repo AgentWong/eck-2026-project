@@ -1,0 +1,29 @@
+# Local development overrides (Rancher Desktop / K3s)
+
+destination:
+  server: https://kubernetes.default.svc
+
+certManager:
+  namespace: cert-manager
+
+istio:
+  namespace: istio-system
+
+eck:
+  operatorNamespace: elastic-system
+  stackNamespace: elastic
+
+keycloak:
+  namespace: keycloak
+
+monitoring:
+  namespace: elastic
+
+networkPolicies:
+  namespace: default
+
+eck:
+  stackPath: gitops/apps/eck/stack/overlays/local
+
+keycloak:
+  path: gitops/apps/keycloak/overlays/local

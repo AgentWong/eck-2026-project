@@ -1,0 +1,48 @@
+# AWS EKS overrides
+
+destination:
+  server: https://kubernetes.default.svc
+
+certManager:
+  namespace: cert-manager
+
+istio:
+  namespace: istio-system
+
+eck:
+  operatorNamespace: elastic-system
+  stackNamespace: elastic
+  stackPath: gitops/apps/eck/stack/overlays/aws
+
+keycloak:
+  namespace: keycloak
+  path: gitops/apps/keycloak/overlays/aws
+
+kiali:
+  web_fqdn: kiali.hermanwong.io
+  auth:
+    strategy: openid
+    openid:
+      client_id: kiali
+      issuer_uri: https://keycloak.hermanwong.io/realms/eck-2026
+
+monitoring:
+  namespace: elastic
+
+networkPolicies:
+  namespace: default
+
+awsIngress:
+  enabled: true
+  # REQUIRED: set dynamically via --set at install time (from Terraform security-context output).
+  # Default is deny-all to prevent accidental public exposure if deployer forgets to override.
+  allowedCidr: "0.0.0.0/32"
+  # natGatewayIp is set dynamically via --set at install time (from Terraform VPC output).
+  # In-cluster pods egress via this IP, so the Keycloak ALB must allow it for OIDC token exchange.
+  natGatewayIp: "0.0.0.0"
+  # Set this to your ACM wildcard certificate ARN
+  acmCertificateArn: "YOUR_ACM_CERTIFICATE_ARN"
+  argocdFqdn: argocd.hermanwong.io
+  keycloakFqdn: keycloak.hermanwong.io
+  kibanaFqdn: kibana.hermanwong.io
+  kialiFqdn: kiali.hermanwong.io

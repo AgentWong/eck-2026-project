@@ -1,0 +1,33 @@
+{{- if .Values.awsIngress.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-ingress
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    path: gitops/apps/aws-ingress
+    targetRevision: {{ .Values.targetRevision }}
+    helm:
+      valuesObject:
+        allowedCidr: {{ .Values.awsIngress.allowedCidr | quote }}
+        natGatewayIp: {{ .Values.awsIngress.natGatewayIp | quote }}
+        acmCertificateArn: {{ .Values.awsIngress.acmCertificateArn | quote }}
+        argocdFqdn: {{ .Values.awsIngress.argocdFqdn | quote }}
+        keycloakFqdn: {{ .Values.awsIngress.keycloakFqdn | quote }}
+        kibanaFqdn: {{ .Values.awsIngress.kibanaFqdn | quote }}
+        kialiFqdn: {{ .Values.awsIngress.kialiFqdn | quote }}
+  destination:
+    server: {{ .Values.destination.server }}
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+{{- end }}

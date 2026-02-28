@@ -1,0 +1,80 @@
+# PostSync Job to activate trial license and create role mappings for Keycloak OIDC
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: es-role-mappings
+  namespace: elastic
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: role-mapper
+          image: curlimages/curl:8.5.0
+          env:
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-es-elastic-user
+                  key: elastic
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ES_URL="https://elasticsearch-es-http.elastic.svc:9200"
+
+              # Wait for Elasticsearch to be ready
+              echo "Waiting for Elasticsearch..."
+              until curl -sk -u "elastic:${ES_PASSWORD}" "${ES_URL}/_cluster/health" | grep -q '"status"'; do
+                sleep 10
+              done
+              echo "Elasticsearch is ready"
+
+              # Start trial license (required for OIDC)
+              echo "Starting trial license..."
+              curl -sk -u "elastic:${ES_PASSWORD}" -X POST \
+                "${ES_URL}/_license/start_trial?acknowledge=true"
+              echo ""
+
+              # Map Keycloak 'admin' role to Elasticsearch 'superuser'
+              echo "Creating keycloak_admin role mapping..."
+              curl -sk -u "elastic:${ES_PASSWORD}" -X PUT \
+                "${ES_URL}/_security/role_mapping/keycloak_admin" \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "roles": ["superuser"],
+                  "enabled": true,
+                  "rules": {
+                    "field": { "groups": "admin" }
+                  },
+                  "metadata": {
+                    "source": "keycloak"
+                  }
+                }'
+              echo ""
+
+              # Map Keycloak 'user' role to Elasticsearch 'kibana_admin' + 'viewer'
+              echo "Creating keycloak_viewer role mapping..."
+              curl -sk -u "elastic:${ES_PASSWORD}" -X PUT \
+                "${ES_URL}/_security/role_mapping/keycloak_viewer" \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "roles": ["kibana_admin", "viewer"],
+                  "enabled": true,
+                  "rules": {
+                    "field": { "groups": "user" }
+                  },
+                  "metadata": {
+                    "source": "keycloak"
+                  }
+                }'
+              echo ""
+
+              echo "Role mappings created successfully"
+              # Shut down the Istio sidecar so the Job pod can complete.
+              # Without this, the sidecar keeps the pod alive indefinitely and
+              # ArgoCD's HookSucceeded delete policy never fires.
+              curl -fsI -X POST http://localhost:15020/quitquitquit || true

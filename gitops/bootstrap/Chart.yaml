@@ -1,0 +1,5 @@
+apiVersion: v2
+name: eck-2026-bootstrap
+description: App of Apps bootstrap chart for ECK 2026 project
+type: application
+version: 0.1.0

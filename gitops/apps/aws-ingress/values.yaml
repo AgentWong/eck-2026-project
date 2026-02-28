@@ -1,0 +1,8 @@
+# Default deny-all — deployer must set their CIDR via --set awsIngress.allowedCidr=<ip>/32
+allowedCidr: "0.0.0.0/32"
+natGatewayIp: "0.0.0.0"
+acmCertificateArn: ""
+argocdFqdn: ""
+keycloakFqdn: ""
+kibanaFqdn: ""
+kialiFqdn: ""

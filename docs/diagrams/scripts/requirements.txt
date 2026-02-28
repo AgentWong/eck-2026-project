@@ -1,0 +1,6 @@
+# Python diagrams library (https://diagrams.mingrammer.com/)
+# Requires graphviz system package:
+#   Arch Linux: sudo pacman -S graphviz
+#   macOS: brew install graphviz
+#   Ubuntu/Debian: sudo apt install graphviz
+diagrams>=0.24.1

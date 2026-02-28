@@ -1,0 +1,168 @@
+# PostSync Job to create the eck-2026 realm in Keycloak via Admin API
+# The KeycloakRealmImport CRD doesn't work reliably with dev-file (H2)
+# because the import runs in a separate pod with its own ephemeral database.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-realm-import
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: realm-importer
+          image: curlimages/curl:8.5.0
+          env:
+            - name: KC_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-initial-admin
+                  key: username
+            - name: KC_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-initial-admin
+                  key: password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              KC_URL="https://keycloak-service.keycloak.svc:8443"
+
+              # Wait for Keycloak to be ready
+              echo "Waiting for Keycloak..."
+              until curl -sk "${KC_URL}/realms/master" | grep -q '"realm"'; do
+                sleep 5
+              done
+              echo "Keycloak is ready"
+
+              # Get admin token
+              echo "Obtaining admin token..."
+              TOKEN=$(curl -sk "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                -d "client_id=admin-cli" \
+                -d "username=${KC_ADMIN_USER}" \
+                -d "password=${KC_ADMIN_PASS}" \
+                -d "grant_type=password" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: Failed to obtain admin token"
+                exit 1
+              fi
+              echo "Token obtained"
+
+              # Check if realm already exists
+              HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer $TOKEN" \
+                "${KC_URL}/admin/realms/eck-2026")
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Realm eck-2026 already exists, skipping import"
+                exit 0
+              fi
+
+              # Create the realm
+              echo "Creating eck-2026 realm..."
+              HTTP_CODE=$(curl -sk -o /tmp/response.txt -w "%{http_code}" \
+                -X POST "${KC_URL}/admin/realms" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "id": "eck-2026",
+                  "realm": "eck-2026",
+                  "displayName": "ECK 2026",
+                  "enabled": true,
+                  "roles": {
+                    "realm": [
+                      {"name": "user"},
+                      {"name": "admin"}
+                    ]
+                  },
+                  "clients": [
+                    {
+                      "clientId": "argocd",
+                      "enabled": true,
+                      "publicClient": false,
+                      "standardFlowEnabled": true,
+                      "directAccessGrantsEnabled": false,
+                      "rootUrl": "https://localhost:8080",
+                      "redirectUris": ["https://localhost:8080/auth/callback"],
+                      "webOrigins": ["https://localhost:8080"],
+                      "protocol": "openid-connect",
+                      "secret": "REPLACE_WITH_STRONG_SECRET"
+                    },
+                    {
+                      "clientId": "kibana",
+                      "enabled": true,
+                      "publicClient": false,
+                      "standardFlowEnabled": true,
+                      "directAccessGrantsEnabled": false,
+                      "rootUrl": "https://localhost:5601",
+                      "redirectUris": [
+                        "https://localhost:5601/api/security/oidc/callback",
+                        "https://localhost:5601/*"
+                      ],
+                      "webOrigins": ["https://localhost:5601"],
+                      "protocol": "openid-connect",
+                      "secret": "REPLACE_WITH_STRONG_SECRET",
+                      "protocolMappers": [
+                        {
+                          "name": "realm-roles",
+                          "protocol": "openid-connect",
+                          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                          "config": {
+                            "claim.name": "roles",
+                            "id.token.claim": "true",
+                            "access.token.claim": "true",
+                            "userinfo.token.claim": "true",
+                            "multivalued": "true",
+                            "jsonType.label": "String"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "clientId": "kiali",
+                      "enabled": true,
+                      "publicClient": false,
+                      "standardFlowEnabled": true,
+                      "directAccessGrantsEnabled": false,
+                      "rootUrl": "https://localhost:20001",
+                      "redirectUris": ["https://localhost:20001/*"],
+                      "webOrigins": ["https://localhost:20001"],
+                      "protocol": "openid-connect",
+                      "secret": "REPLACE_WITH_STRONG_SECRET"
+                    }
+                  ],
+                  "users": [
+                    {
+                      "username": "admin",
+                      "enabled": true,
+                      "email": "admin@example.com",
+                      "firstName": "Admin",
+                      "lastName": "User",
+                      "credentials": [{"type": "password", "value": "admin", "temporary": false}],
+                      "realmRoles": ["admin", "user"]
+                    },
+                    {
+                      "username": "viewer",
+                      "enabled": true,
+                      "email": "viewer@example.com",
+                      "firstName": "Viewer",
+                      "lastName": "User",
+                      "credentials": [{"type": "password", "value": "viewer", "temporary": false}],
+                      "realmRoles": ["user"]
+                    }
+                  ]
+                }')
+
+              if [ "$HTTP_CODE" = "201" ]; then
+                echo "Realm eck-2026 created successfully"
+              else
+                echo "ERROR: Failed to create realm (HTTP $HTTP_CODE)"
+                cat /tmp/response.txt
+                exit 1
+              fi
