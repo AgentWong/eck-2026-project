@@ -81,6 +81,11 @@ Real cost breakdown for an 8-hour session:
 
 I tear down the infrastructure at the end of each session with `terragrunt run-all destroy`. No overnight charges. Real monthly cost at 8 hrs/day: **~$69/month**.
 
+<!-- Screenshot: February Billing Cost -->
+![February Costs](docs/screenshots/cost-month-feb.png)
+
+This is the costs for roughly a week of sandbox testing and proof-of-concept deployments.
+
 ## Application Stack
 
 ### GitOps with ArgoCD
