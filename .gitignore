@@ -51,8 +51,6 @@ credentials.json
 *.tfvars
 secrets.hcl
 
-# Claude Code
-.claude/
 
 # AI Reference Files
 .ai_references
