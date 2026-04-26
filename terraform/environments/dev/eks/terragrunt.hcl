@@ -19,7 +19,7 @@ dependency "vpc" {
 
 inputs = {
   cluster_name    = "eck-2026-dev"
-  cluster_version = "1.33"
+  cluster_version = "1.35"
   vpc_id          = dependency.vpc.outputs.vpc_id
   subnet_ids      = dependency.vpc.outputs.private_subnets
 }
